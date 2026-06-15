@@ -1,0 +1,59 @@
+# Swish View - Robots.txt
+# Allow all crawlers full access to creator pages and blogs
+
+User-agent: *
+Allow: /
+
+# Prioritize blog pages (creator profiles live at /blogs/:slug)
+Allow: /blogs/
+Allow: /blog-post/
+
+# Legacy /creator/* URLs are 301-redirected to /blogs/* — block crawl to speed up consolidation
+Disallow: /creator/
+
+# Disallow admin and private areas
+Disallow: /admin
+Disallow: /admin-dashboard
+Disallow: /dashboard
+Disallow: /login
+Disallow: /signup
+Disallow: /auth
+Disallow: /profile
+Disallow: /payment
+Disallow: /success
+Disallow: /blogs-management
+Disallow: /campaign-management
+Disallow: /tracker
+Disallow: /email-tracker
+Disallow: /partners
+Disallow: /create-seo
+Disallow: /create-campaign
+Disallow: /create-promotion
+Disallow: /book-a-project
+Disallow: /forgot-password
+Disallow: /reset-password
+
+# Disallow API endpoints
+Disallow: /api/
+
+# Crawl rate optimization
+Crawl-delay: 0
+
+# Sitemap location
+Sitemap: https://www.swishview.com/sitemap.xml
+
+# Specific bot directives for better indexing
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 0
+
+User-agent: Slurp
+Allow: /
+Crawl-delay: 1
