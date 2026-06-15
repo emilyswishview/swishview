@@ -4601,6 +4601,8 @@ ${vidBlock(2)}`;
 
       <SendQueuePanel open={sendQueueOpen} onOpenChange={setSendQueueOpen} />
 
+      <EmployeePermissionsDialog open={permsDialogOpen} onOpenChange={setPermsDialogOpen} />
+
     </div>
   );
 };
