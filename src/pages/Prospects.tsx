@@ -22,6 +22,7 @@ import {
 
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useProspectsSession } from "@/hooks/useProspectsSession";
+import EmployeePermissionsDialog from "@/components/prospects/EmployeePermissionsDialog";
 import { supabase } from "@/integrations/supabase/client";
 
 type ProspectStatus = "NA" | "Interested" | "Negotiating" | "Closed Won" | "Closed Lost" | "Follow-up" | "No Response";
