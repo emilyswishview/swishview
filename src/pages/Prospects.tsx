@@ -1066,7 +1066,15 @@ const Prospects = () => {
       return "prospects";
     }
   );
-  const { isAdmin, role, email: authedEmail, signOut } = useProspectsSession();
+  const { isAdmin, role, email: authedEmail, signOut, perms } = useProspectsSession();
+  const [permsDialogOpen, setPermsDialogOpen] = useState(false);
+  const canEdit = isAdmin || perms.can_edit;
+  const canCreate = isAdmin || perms.can_create;
+  const canDelete = isAdmin || perms.can_delete;
+  const canSend = isAdmin || perms.can_send;
+  const canSync = isAdmin || perms.can_sync;
+  const canBan = isAdmin || perms.can_ban;
+  const canExport = isAdmin || perms.can_export;
   const [prospectsFirst, setProspectsFirst] = useState<boolean>(
     () => localStorage.getItem("prospects.prospectsFirst") !== "0"
   );
