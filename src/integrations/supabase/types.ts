@@ -1786,6 +1786,7 @@ export type Database = {
           data: Json
           email: string | null
           id: string
+          is_banned: boolean
           last_fetched_at: string | null
           last_video_date: string | null
           last_video_title: string | null
@@ -1817,6 +1818,7 @@ export type Database = {
           data?: Json
           email?: string | null
           id?: string
+          is_banned?: boolean
           last_fetched_at?: string | null
           last_video_date?: string | null
           last_video_title?: string | null
@@ -1848,6 +1850,7 @@ export type Database = {
           data?: Json
           email?: string | null
           id?: string
+          is_banned?: boolean
           last_fetched_at?: string | null
           last_video_date?: string | null
           last_video_title?: string | null
