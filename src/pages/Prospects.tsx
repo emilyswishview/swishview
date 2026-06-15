@@ -3246,7 +3246,7 @@ ${vidBlock(2)}`;
               <span className={`px-1.5 py-0.5 rounded ${isAdmin ? "bg-primary/10 text-primary" : "bg-accent text-foreground"}`}>{isAdmin ? "ADMIN" : "EMPLOYEE"}</span>
               <span className="hidden md:inline truncate max-w-[140px]">{authedEmail}</span>
               {isAdmin && (
-                <button onClick={() => navigate("/prospects-login")} className="hover:text-foreground" title="Open admin tools">⚙</button>
+                <button onClick={() => setPermsDialogOpen(true)} className="hover:text-foreground" title="Employee permissions">⚙</button>
               )}
               <button onClick={signOut} className="hover:text-foreground" title="Sign out">⎋</button>
             </div>
