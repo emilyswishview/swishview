@@ -1896,6 +1896,42 @@ export type Database = {
         }
         Relationships: []
       }
+      prospects_employee_permissions: {
+        Row: {
+          can_ban: boolean
+          can_create: boolean
+          can_delete: boolean
+          can_edit: boolean
+          can_export: boolean
+          can_send: boolean
+          can_sync: boolean
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          can_ban?: boolean
+          can_create?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_export?: boolean
+          can_send?: boolean
+          can_sync?: boolean
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          can_ban?: boolean
+          can_create?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_export?: boolean
+          can_send?: boolean
+          can_sync?: boolean
+          id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       recent_activities: {
         Row: {
           activity_date: string

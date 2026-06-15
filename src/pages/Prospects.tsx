@@ -22,6 +22,7 @@ import {
 
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useProspectsSession } from "@/hooks/useProspectsSession";
+import EmployeePermissionsDialog from "@/components/prospects/EmployeePermissionsDialog";
 import { supabase } from "@/integrations/supabase/client";
 
 type ProspectStatus = "NA" | "Interested" | "Negotiating" | "Closed Won" | "Closed Lost" | "Follow-up" | "No Response";
@@ -1065,7 +1066,15 @@ const Prospects = () => {
       return "prospects";
     }
   );
-  const { isAdmin, role, email: authedEmail, signOut } = useProspectsSession();
+  const { isAdmin, role, email: authedEmail, signOut, perms } = useProspectsSession();
+  const [permsDialogOpen, setPermsDialogOpen] = useState(false);
+  const canEdit = isAdmin || perms.can_edit;
+  const canCreate = isAdmin || perms.can_create;
+  const canDelete = isAdmin || perms.can_delete;
+  const canSend = isAdmin || perms.can_send;
+  const canSync = isAdmin || perms.can_sync;
+  const canBan = isAdmin || perms.can_ban;
+  const canExport = isAdmin || perms.can_export;
   const [prospectsFirst, setProspectsFirst] = useState<boolean>(
     () => localStorage.getItem("prospects.prospectsFirst") !== "0"
   );
@@ -3237,7 +3246,7 @@ ${vidBlock(2)}`;
               <span className={`px-1.5 py-0.5 rounded ${isAdmin ? "bg-primary/10 text-primary" : "bg-accent text-foreground"}`}>{isAdmin ? "ADMIN" : "EMPLOYEE"}</span>
               <span className="hidden md:inline truncate max-w-[140px]">{authedEmail}</span>
               {isAdmin && (
-                <button onClick={() => navigate("/prospects-login")} className="hover:text-foreground" title="Open admin tools">⚙</button>
+                <button onClick={() => setPermsDialogOpen(true)} className="hover:text-foreground" title="Employee permissions">⚙</button>
               )}
               <button onClick={signOut} className="hover:text-foreground" title="Sign out">⎋</button>
             </div>
@@ -4591,6 +4600,8 @@ ${vidBlock(2)}`;
       </Sheet>
 
       <SendQueuePanel open={sendQueueOpen} onOpenChange={setSendQueueOpen} />
+
+      <EmployeePermissionsDialog open={permsDialogOpen} onOpenChange={setPermsDialogOpen} />
 
     </div>
   );

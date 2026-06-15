@@ -7,12 +7,33 @@ export const PROSPECTS_ADMIN_EMAIL = "emilyadmin@swishview.com";
 
 export type ProspectsRole = "admin" | "employee" | null;
 
+export interface EmployeePermissions {
+  can_edit: boolean;
+  can_create: boolean;
+  can_delete: boolean;
+  can_send: boolean;
+  can_sync: boolean;
+  can_ban: boolean;
+  can_export: boolean;
+}
+
+export const READ_ONLY_PERMS: EmployeePermissions = {
+  can_edit: false, can_create: false, can_delete: false,
+  can_send: false, can_sync: false, can_ban: false, can_export: false,
+};
+
+export const ALL_PERMS: EmployeePermissions = {
+  can_edit: true, can_create: true, can_delete: true,
+  can_send: true, can_sync: true, can_ban: true, can_export: true,
+};
+
 export interface ProspectsSession {
   loading: boolean;
   userId: string | null;
   email: string | null;
   role: ProspectsRole;
   isAdmin: boolean;
+  perms: EmployeePermissions;
   signOut: () => Promise<void>;
 }
 
@@ -30,6 +51,7 @@ export function useProspectsSession(): ProspectsSession {
   const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [role, setRole] = useState<ProspectsRole>(null);
+  const [perms, setPerms] = useState<EmployeePermissions>(READ_ONLY_PERMS);
 
   const signOut = async () => {
     try { await supabase.auth.signOut(); } catch {}
@@ -52,6 +74,16 @@ export function useProspectsSession(): ProspectsSession {
       return !!r;
     };
 
+    const loadPerms = async () => {
+      const { data } = await supabase
+        .from("prospects_employee_permissions" as any)
+        .select("can_edit, can_create, can_delete, can_send, can_sync, can_ban, can_export")
+        .eq("id", 1)
+        .maybeSingle();
+      if (cancelled) return;
+      if (data) setPerms({ ...READ_ONLY_PERMS, ...(data as any) });
+    };
+
     const init = async () => {
       const { data } = await supabase.auth.getSession();
       if (cancelled) return;
@@ -67,6 +99,7 @@ export function useProspectsSession(): ProspectsSession {
         navigate("/prospects-login");
         return;
       }
+      await loadPerms();
       setLoading(false);
     };
     init();
@@ -75,10 +108,12 @@ export function useProspectsSession(): ProspectsSession {
       const ok = apply(sess);
       if (!sess?.user) navigate("/prospects-login");
       else if (!ok) { supabase.auth.signOut(); navigate("/prospects-login"); }
+      else loadPerms();
     });
 
     return () => { cancelled = true; sub.subscription.unsubscribe(); };
   }, [navigate]);
 
-  return { loading, userId, email, role, isAdmin: role === "admin", signOut };
+  const isAdmin = role === "admin";
+  return { loading, userId, email, role, isAdmin, perms: isAdmin ? ALL_PERMS : perms, signOut };
 }
