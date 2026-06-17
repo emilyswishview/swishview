@@ -39,7 +39,7 @@ export default function EmployeePermissionsDialog({ open, onOpenChange }: { open
     const { error } = await supabase.from("prospects_employee_permissions" as any).update({ ...perms, updated_at: new Date().toISOString() }).eq("id", 1);
     setSaving(false);
     if (error) { toast({ title: "Save failed", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Permissions updated", description: "Employees see changes on next page load." });
+    toast({ title: "Permissions updated", description: "Sales reps see changes on next page load." });
     onOpenChange(false);
   };
 
@@ -47,8 +47,8 @@ export default function EmployeePermissionsDialog({ open, onOpenChange }: { open
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Employee Permissions</DialogTitle>
-          <DialogDescription>Choose what non-admin @swishview.com employees can do on the Prospects page. Everything off = read-only.</DialogDescription>
+          <DialogTitle>Sales Rep Permissions</DialogTitle>
+          <DialogDescription>Choose what non-admin sales reps can do on the Prospects page. Everything off = read-only.</DialogDescription>
         </DialogHeader>
         {loading ? (
           <div className="py-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin" /></div>
