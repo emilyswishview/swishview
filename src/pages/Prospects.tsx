@@ -4705,7 +4705,11 @@ ${vidBlock(2)}`;
         </SheetContent>
       </Sheet>
 
-      <SendQueuePanel open={sendQueueOpen} onOpenChange={setSendQueueOpen} />
+      <SendQueuePanel
+        open={sendQueueOpen}
+        onOpenChange={setSendQueueOpen}
+        senderFilter={isAdmin ? null : (PROSPECTS_ALLOWED_SENDERS[(authedEmail || "").toLowerCase()] || ((authedEmail || "").toLowerCase() ? [(authedEmail || "").toLowerCase()] : []))}
+      />
 
       <EmployeePermissionsDialog open={permsDialogOpen} onOpenChange={setPermsDialogOpen} />
 
