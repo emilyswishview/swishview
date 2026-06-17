@@ -3363,21 +3363,25 @@ ${vidBlock(2)}`;
             </>
           )}
 
-          <Button
-            size="icon" variant="ghost" className="h-9 w-9"
-            onClick={dedupe}
-            title="Remove duplicate rows (same email)"
-          >
-            <CopyMinus className="h-4 w-4" />
-          </Button>
+          {isAdmin && (
+            <Button
+              size="icon" variant="ghost" className="h-9 w-9"
+              onClick={dedupe}
+              title="Remove duplicate rows (same email)"
+            >
+              <CopyMinus className="h-4 w-4" />
+            </Button>
+          )}
 
-          <Button
-            size="icon" variant="ghost" className="h-9 w-9"
-            onClick={() => setTestDraftOpen(true)}
-            title="Test draft — generate & email test drafts to any inbox"
-          >
-            <FlaskConical className="h-4 w-4" />
-          </Button>
+          {isAdmin && (
+            <Button
+              size="icon" variant="ghost" className="h-9 w-9"
+              onClick={() => setTestDraftOpen(true)}
+              title="Test draft — generate & email test drafts to any inbox"
+            >
+              <FlaskConical className="h-4 w-4" />
+            </Button>
+          )}
 
           <Button
             size="icon" variant="ghost" className="h-9 w-9"
@@ -3388,7 +3392,7 @@ ${vidBlock(2)}`;
           </Button>
 
 
-          <MailSyncStatus />
+          {isAdmin && <MailSyncStatus />}
           {(convLoading || convProgress.total > 0 && convProgress.done < convProgress.total) && (
             <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin text-primary" />
