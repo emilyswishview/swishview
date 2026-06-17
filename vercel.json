@@ -1,0 +1,30 @@
+{
+  "redirects": [
+    { "source": "/privacy", "destination": "/privacy-policy", "permanent": true },
+    { "source": "/terms", "destination": "/terms-conditions", "permanent": true },
+    { "source": "/refund", "destination": "/refund-policy", "permanent": true },
+    { "source": "/shipping", "destination": "/shipping-policy", "permanent": true },
+    { "source": "/creator/:slug", "destination": "/blogs/:slug", "permanent": true },
+    { "source": "/creator/:slug/:postSlug", "destination": "/blogs/:slug/:postSlug", "permanent": true },
+    { "source": "/creator/:slug/:postSlug/:videoSlug", "destination": "/blogs/:slug/:postSlug/:videoSlug", "permanent": true }
+  ],
+  "rewrites": [
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
+    { "source": "/((?!api/|sitemap\\.xml|robots\\.txt|googleeb739b9bd7520d4d\\.html|favicon\\.ico|assets/|lovable-uploads/).*)", "destination": "/" }
+  ],
+  "headers": [
+    {
+      "source": "/robots.txt",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=UTF-8" },
+        { "key": "Cache-Control", "value": "public, max-age=86400" }
+      ]
+    },
+    {
+      "source": "/googleeb739b9bd7520d4d.html",
+      "headers": [
+        { "key": "Content-Type", "value": "text/html; charset=UTF-8" }
+      ]
+    }
+  ]
+}

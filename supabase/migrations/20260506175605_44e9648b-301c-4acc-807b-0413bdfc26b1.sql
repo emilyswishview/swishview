@@ -1,0 +1,1 @@
+ALTER TABLE public.daily_reports ADD COLUMN IF NOT EXISTS edited_count integer NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS last_edited_at timestamp with time zone;
