@@ -2736,19 +2736,24 @@ WhatsApp - +1 (705) 614 0340`;
       return;
     }
 
-    // Kick the server-side worker (iterates ALL prospects, skips those synced today).
-    // Visible rows go first as priorityIds so the user sees their focus update fast.
-    supabase.functions.invoke("prospects-daily-sync", {
-      body: {
-        priorityIds: filteredSorted.slice(0, 500).map(r => r.id),
-        force: false,
-        ownerSenders,
-      },
-    }).catch(() => {});
-
     setSyncing(true);
     cancelSyncRef.current = false;
     setSyncProgress({ done: 0, total: initialPending });
+
+    // Kick the server-side worker (iterates ALL prospects, skips those synced today).
+    // Visible rows go first as priorityIds so the user sees their focus update fast.
+    try {
+      const { error: invErr } = await supabase.functions.invoke("prospects-daily-sync", {
+        body: {
+          priorityIds: filteredSorted.slice(0, 500).map(r => r.id),
+          force: false,
+          ownerSenders,
+        },
+      });
+      if (invErr) console.error("prospects-daily-sync invoke error", invErr);
+    } catch (e) {
+      console.error("prospects-daily-sync invoke threw", e);
+    }
 
     // Poll DB for remaining pending rows so the progress bar reflects real server progress
     // across every page (not just the rows loaded in the browser).
@@ -2756,16 +2761,16 @@ WhatsApp - +1 (705) 614 0340`;
     let lastRemaining = initialPending;
     let stalledTicks = 0;
     while (!cancelSyncRef.current) {
-      await new Promise(res => setTimeout(res, 5000));
+      await new Promise(res => setTimeout(res, 2000));
       let remaining = 0;
       try { remaining = await countPending(); } catch { continue; }
       const done = Math.max(0, initialPending - remaining);
       setSyncProgress({ done, total: initialPending });
       if (remaining === 0) break;
-      // Re-kick the worker if progress stalls for 60s (3 consecutive ticks at 5s + slack).
+      // Re-kick the worker if progress stalls for ~30s (15 consecutive 2s ticks).
       if (remaining === lastRemaining) {
         stalledTicks++;
-        if (stalledTicks >= 6) {
+        if (stalledTicks >= 15) {
           supabase.functions.invoke("prospects-daily-sync", {
             body: { force: false, ownerSenders },
           }).catch(() => {});
@@ -3363,21 +3368,25 @@ ${vidBlock(2)}`;
             </>
           )}
 
-          <Button
-            size="icon" variant="ghost" className="h-9 w-9"
-            onClick={dedupe}
-            title="Remove duplicate rows (same email)"
-          >
-            <CopyMinus className="h-4 w-4" />
-          </Button>
+          {isAdmin && (
+            <Button
+              size="icon" variant="ghost" className="h-9 w-9"
+              onClick={dedupe}
+              title="Remove duplicate rows (same email)"
+            >
+              <CopyMinus className="h-4 w-4" />
+            </Button>
+          )}
 
-          <Button
-            size="icon" variant="ghost" className="h-9 w-9"
-            onClick={() => setTestDraftOpen(true)}
-            title="Test draft — generate & email test drafts to any inbox"
-          >
-            <FlaskConical className="h-4 w-4" />
-          </Button>
+          {isAdmin && (
+            <Button
+              size="icon" variant="ghost" className="h-9 w-9"
+              onClick={() => setTestDraftOpen(true)}
+              title="Test draft — generate & email test drafts to any inbox"
+            >
+              <FlaskConical className="h-4 w-4" />
+            </Button>
+          )}
 
           <Button
             size="icon" variant="ghost" className="h-9 w-9"
@@ -3388,7 +3397,7 @@ ${vidBlock(2)}`;
           </Button>
 
 
-          <MailSyncStatus />
+          {isAdmin && <MailSyncStatus />}
           {(convLoading || convProgress.total > 0 && convProgress.done < convProgress.total) && (
             <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin text-primary" />
@@ -3418,7 +3427,8 @@ ${vidBlock(2)}`;
             </div>
           )}
 
-          {/* Source tabs — Prospect List vs Workspace Discovered (mutually exclusive) */}
+          {/* Source tabs — admin only; sales reps always see their prospect list */}
+          {isAdmin && (
           <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5" role="tablist">
             <button
               type="button"
@@ -3455,6 +3465,7 @@ ${vidBlock(2)}`;
               </button>
             )}
           </div>
+          )}
 
           <Popover>
             <PopoverTrigger asChild>
@@ -3501,7 +3512,8 @@ ${vidBlock(2)}`;
         </div>
 
 
-        {/* Minimal formula bar — collapsed by default */}
+        {/* Minimal formula bar — admin only */}
+        {isAdmin && (
         <div className="px-4 pb-2 flex items-center gap-2">
           <button
             type="button"
@@ -3591,6 +3603,7 @@ ${vidBlock(2)}`;
             </Button>
           </div>
         </div>
+        )}
       </div>
 
 
