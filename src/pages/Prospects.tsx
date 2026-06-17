@@ -3507,7 +3507,8 @@ ${vidBlock(2)}`;
         </div>
 
 
-        {/* Minimal formula bar — collapsed by default */}
+        {/* Minimal formula bar — admin only */}
+        {isAdmin && (
         <div className="px-4 pb-2 flex items-center gap-2">
           <button
             type="button"
@@ -3597,6 +3598,7 @@ ${vidBlock(2)}`;
             </Button>
           </div>
         </div>
+        )}
       </div>
 
 
