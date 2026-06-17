@@ -3422,7 +3422,8 @@ ${vidBlock(2)}`;
             </div>
           )}
 
-          {/* Source tabs — Prospect List vs Workspace Discovered (mutually exclusive) */}
+          {/* Source tabs — admin only; sales reps always see their prospect list */}
+          {isAdmin && (
           <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5" role="tablist">
             <button
               type="button"
@@ -3459,6 +3460,7 @@ ${vidBlock(2)}`;
               </button>
             )}
           </div>
+          )}
 
           <Popover>
             <PopoverTrigger asChild>
