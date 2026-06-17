@@ -2736,19 +2736,24 @@ WhatsApp - +1 (705) 614 0340`;
       return;
     }
 
-    // Kick the server-side worker (iterates ALL prospects, skips those synced today).
-    // Visible rows go first as priorityIds so the user sees their focus update fast.
-    supabase.functions.invoke("prospects-daily-sync", {
-      body: {
-        priorityIds: filteredSorted.slice(0, 500).map(r => r.id),
-        force: false,
-        ownerSenders,
-      },
-    }).catch(() => {});
-
     setSyncing(true);
     cancelSyncRef.current = false;
     setSyncProgress({ done: 0, total: initialPending });
+
+    // Kick the server-side worker (iterates ALL prospects, skips those synced today).
+    // Visible rows go first as priorityIds so the user sees their focus update fast.
+    try {
+      const { error: invErr } = await supabase.functions.invoke("prospects-daily-sync", {
+        body: {
+          priorityIds: filteredSorted.slice(0, 500).map(r => r.id),
+          force: false,
+          ownerSenders,
+        },
+      });
+      if (invErr) console.error("prospects-daily-sync invoke error", invErr);
+    } catch (e) {
+      console.error("prospects-daily-sync invoke threw", e);
+    }
 
     // Poll DB for remaining pending rows so the progress bar reflects real server progress
     // across every page (not just the rows loaded in the browser).
@@ -2756,16 +2761,16 @@ WhatsApp - +1 (705) 614 0340`;
     let lastRemaining = initialPending;
     let stalledTicks = 0;
     while (!cancelSyncRef.current) {
-      await new Promise(res => setTimeout(res, 5000));
+      await new Promise(res => setTimeout(res, 2000));
       let remaining = 0;
       try { remaining = await countPending(); } catch { continue; }
       const done = Math.max(0, initialPending - remaining);
       setSyncProgress({ done, total: initialPending });
       if (remaining === 0) break;
-      // Re-kick the worker if progress stalls for 60s (3 consecutive ticks at 5s + slack).
+      // Re-kick the worker if progress stalls for ~30s (15 consecutive 2s ticks).
       if (remaining === lastRemaining) {
         stalledTicks++;
-        if (stalledTicks >= 6) {
+        if (stalledTicks >= 15) {
           supabase.functions.invoke("prospects-daily-sync", {
             body: { force: false, ownerSenders },
           }).catch(() => {});
