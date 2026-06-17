@@ -122,7 +122,7 @@ export default function SendQueuePanel({ open, onOpenChange, senderFilter }: Pro
     } finally {
       setLoading(false);
     }
-  }, [tab, toast]);
+  }, [tab, toast, scoped, JSON.stringify(senders)]);
 
   useEffect(() => {
     if (!open) return;
