@@ -1102,7 +1102,11 @@ const Prospects = () => {
   );
   useEffect(() => { localStorage.setItem("prospects.sourceFilter", sourceFilter); }, [sourceFilter]);
   // Non-admins must never sit on the Banned tab.
-  useEffect(() => { if (!isAdmin && sourceFilter === "banned") setSourceFilter("prospects"); }, [isAdmin, sourceFilter]);
+  useEffect(() => {
+    if (!isAdmin && (sourceFilter === "banned" || sourceFilter === "discovered")) {
+      setSourceFilter("prospects");
+    }
+  }, [isAdmin, sourceFilter]);
   useEffect(() => { localStorage.setItem("prospects.prospectsFirst", prospectsFirst ? "1" : "0"); }, [prospectsFirst]);
   useEffect(() => {
     try { localStorage.setItem("prospects.convCounts", JSON.stringify(convCounts)); } catch {}
@@ -3324,7 +3328,7 @@ ${vidBlock(2)}`;
               <button
                 onClick={() => setPermsDialogOpen(true)}
                 className="ml-1 text-muted-foreground hover:text-foreground"
-                title="Employee permissions"
+                title="Sales rep permissions"
               >⚙</button>
             </div>
           )}
@@ -3426,16 +3430,18 @@ ${vidBlock(2)}`;
             >
               Prospect List
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={sourceFilter === "discovered"}
-              onClick={() => setSourceFilter("discovered")}
-              className={`px-2.5 h-7 text-xs rounded ${sourceFilter === "discovered" ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50"}`}
-              title="Not on the prospect list but Workspace emails have been sent to them"
-            >
-              Workspace Contacts
-            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={sourceFilter === "discovered"}
+                onClick={() => setSourceFilter("discovered")}
+                className={`px-2.5 h-7 text-xs rounded ${sourceFilter === "discovered" ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50"}`}
+                title="Not on the prospect list but Workspace emails have been sent to them"
+              >
+                Workspace Contacts
+              </button>
+            )}
             {isAdmin && (
               <button
                 type="button"
@@ -4705,7 +4711,11 @@ ${vidBlock(2)}`;
         </SheetContent>
       </Sheet>
 
-      <SendQueuePanel open={sendQueueOpen} onOpenChange={setSendQueueOpen} />
+      <SendQueuePanel
+        open={sendQueueOpen}
+        onOpenChange={setSendQueueOpen}
+        senderFilter={isAdmin ? null : (PROSPECTS_ALLOWED_SENDERS[(authedEmail || "").toLowerCase()] || ((authedEmail || "").toLowerCase() ? [(authedEmail || "").toLowerCase()] : []))}
+      />
 
       <EmployeePermissionsDialog open={permsDialogOpen} onOpenChange={setPermsDialogOpen} />
 

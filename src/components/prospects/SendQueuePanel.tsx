@@ -27,6 +27,11 @@ interface Job {
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  /**
+   * If provided, only jobs whose from_email is in this list are visible.
+   * Pass null/undefined for admin (sees everything).
+   */
+  senderFilter?: string[] | null;
 }
 
 const STATUS_TABS: { key: JobStatus | "all"; label: string }[] = [
@@ -58,8 +63,10 @@ const fmtAbs = (iso: string | null) => {
   return d.toLocaleString(undefined, { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 };
 
-export default function SendQueuePanel({ open, onOpenChange }: Props) {
+export default function SendQueuePanel({ open, onOpenChange, senderFilter }: Props) {
   const { toast } = useToast();
+  const scoped = Array.isArray(senderFilter) && senderFilter.length > 0;
+  const senders = scoped ? senderFilter!.map(s => s.toLowerCase()) : null;
   const [tab, setTab] = useState<JobStatus | "all">("pending");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -75,9 +82,13 @@ export default function SendQueuePanel({ open, onOpenChange }: Props) {
       const statuses: JobStatus[] = ["pending", "processing", "sent", "error", "paused"];
       const countResults = await Promise.all(
         statuses.map(s =>
-          (supabase.from as any)("prospect_email_jobs")
-            .select("id", { count: "exact", head: true })
-            .eq("status", s)
+          {
+            let cq: any = (supabase.from as any)("prospect_email_jobs")
+              .select("id", { count: "exact", head: true })
+              .eq("status", s);
+            if (scoped) cq = cq.in("from_email", senders);
+            return cq;
+          }
         )
       );
       const c: Record<string, number> = {};
@@ -87,6 +98,7 @@ export default function SendQueuePanel({ open, onOpenChange }: Props) {
       let q: any = (supabase.from as any)("prospect_email_jobs")
         .select("id,to_email,from_email,from_name,subject,body_text,status,scheduled_at,sent_at,attempts,last_error,created_at,message_id")
         .limit(500);
+      if (scoped) q = q.in("from_email", senders);
       if (tab === "pending" || tab === "paused") {
         q = q.eq("status", tab).order("scheduled_at", { ascending: true });
       } else if (tab === "processing") {
@@ -110,7 +122,7 @@ export default function SendQueuePanel({ open, onOpenChange }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [tab, toast]);
+  }, [tab, toast, scoped, JSON.stringify(senders)]);
 
   useEffect(() => {
     if (!open) return;
