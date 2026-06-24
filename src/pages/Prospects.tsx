@@ -256,13 +256,53 @@ const addSnapshot = (existing: Snapshot[] = [], snap: Snapshot): Snapshot[] => {
   return [...filtered, snap].sort((a, b) => a.date.localeCompare(b.date)).slice(-90);
 };
 
+// Detailed growth analytics from a snapshot series.
+// Returns null when there's no snapshot at all, otherwise gives:
+//  - perDay:   the headline number shown in the cell (7d avg if available,
+//              else last-day delta, else 0)
+//  - last1d:   subs gained since the most recent prior snapshot
+//  - avg7d:    average subs/day over the most recent ≤7-day window
+//  - avg30d:   average subs/day over the most recent ≤30-day window
+//  - total:    total subs gained across the full snapshot window
+//  - days:     number of days the snapshot window covers
+//  - pct:      total % growth over the window (rounded to 0.01)
+//  - viewsPerDay: avg total-views/day over the same window (when available)
 const computeDailyGrowth = (snaps: Snapshot[] = []) => {
-  if (!snaps || snaps.length < 2) return null;
-  const last = snaps[snaps.length - 1];
-  const prev = snaps[snaps.length - 2];
-  const days = Math.max(1, Math.round((+new Date(last.date) - +new Date(prev.date)) / 86400000));
-  const diff = last.subscribers - prev.subscribers;
-  return { perDay: Math.round(diff / days), total: diff, days };
+  if (!snaps || snaps.length === 0) return null;
+  const sorted = [...snaps].sort((a, b) => a.date.localeCompare(b.date));
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  const daySpan = (a: Snapshot, b: Snapshot) =>
+    Math.max(1, Math.round((+new Date(b.date) - +new Date(a.date)) / 86400000));
+
+  const avgWindow = (windowDays: number) => {
+    const cutoff = +new Date(last.date) - windowDays * 86400000;
+    const inWindow = sorted.filter(s => +new Date(s.date) >= cutoff);
+    if (inWindow.length < 2) return null;
+    const a = inWindow[0];
+    const b = inWindow[inWindow.length - 1];
+    const days = daySpan(a, b);
+    return Math.round((b.subscribers - a.subscribers) / days);
+  };
+
+  let last1d: number | null = null;
+  if (sorted.length >= 2) {
+    const prev = sorted[sorted.length - 2];
+    const days = daySpan(prev, last);
+    last1d = Math.round((last.subscribers - prev.subscribers) / days);
+  }
+  const avg7d = avgWindow(7);
+  const avg30d = avgWindow(30);
+  const totalDays = sorted.length >= 2 ? daySpan(first, last) : 0;
+  const total = sorted.length >= 2 ? last.subscribers - first.subscribers : 0;
+  const pct = sorted.length >= 2 && first.subscribers > 0
+    ? Math.round(((last.subscribers - first.subscribers) / first.subscribers) * 10000) / 100
+    : 0;
+  const viewsTotal = sorted.length >= 2 ? (last.totalViews ?? 0) - (first.totalViews ?? 0) : 0;
+  const viewsPerDay = totalDays > 0 ? Math.round(viewsTotal / totalDays) : 0;
+
+  const perDay = avg7d ?? last1d ?? 0;
+  return { perDay, last1d, avg7d, avg30d, total, days: totalDays, pct, viewsPerDay };
 };
 
 const isYouTubeUrl = (s: string) => /youtube\.com|youtu\.be/i.test(s || "");
