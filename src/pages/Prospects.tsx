@@ -1701,10 +1701,16 @@ WhatsApp - +1 (705) 614 0340`;
       else q = q.eq("is_banned", false);
       if (sourceFilter === "discovered") q = q.eq("auto_discovered", true);
       else if (sourceFilter === "prospects") {
+        // Qualified leads: have an enriched channel name OR meet the subs floor.
+        // `channel_name` is stored as "" for unenriched rows (never NULL), so
+        // `.neq("channel_name","")` correctly excludes empty strings.
         q = q.eq("auto_discovered", false)
-             .or("channel_name.not.is.null,subscribers_live.gte.500,subscribers_live.is.null");
+             .or("channel_name.neq.,subscribers_live.gte.500");
       } else if (sourceFilter === "unqualified") {
-        q = q.eq("auto_discovered", false).is("channel_name", null).lt("subscribers_live", 500);
+        // Unqualified = no channel name AND below the subs floor (or unknown).
+        q = q.eq("auto_discovered", false)
+             .eq("channel_name", "")
+             .or("subscribers_live.lt.500,subscribers_live.is.null");
       }
       // Sales reps only see rows assigned to them. Admin sees everything.
       if (ownerSenders) q = q.in("assigned_sender", ownerSenders);
