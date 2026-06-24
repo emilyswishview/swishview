@@ -17,30 +17,38 @@ Deno.serve(async (req) => {
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    if (!SUPABASE_URL || !SERVICE_KEY) {
+      console.error("[reset-pw] missing env", { hasUrl: !!SUPABASE_URL, hasService: !!SERVICE_KEY });
+      return new Response(JSON.stringify({ error: "Server misconfigured" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const authHeader = req.headers.get("Authorization") || "";
-    const token = authHeader.replace("Bearer ", "");
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
     if (!token) {
       return new Response(JSON.stringify({ error: "Missing auth" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data: userRes, error: userErr } = await userClient.auth.getUser();
+    // Verify the caller token directly with the admin client — avoids any
+    // dependency on the (possibly rotated) anon key.
+    const { data: userRes, error: userErr } = await admin.auth.getUser(token);
     if (userErr || !userRes.user) {
+      console.error("[reset-pw] getUser failed", userErr?.message);
       return new Response(JSON.stringify({ error: "Invalid auth" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const callerEmail = (userRes.user.email || "").toLowerCase();
     if (callerEmail !== "emilyadmin@swishview.com") {
+      console.warn("[reset-pw] non-admin caller", callerEmail);
       return new Response(JSON.stringify({ error: "Admin only" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -60,32 +68,40 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Find user by email
+    // Find user by email — paginate through the full directory.
     let target: { id: string } | null = null;
-    for (let page = 1; page <= 10; page++) {
+    let lastErr: any = null;
+    for (let page = 1; page <= 25; page++) {
       const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
-      if (error) break;
+      if (error) { lastErr = error; break; }
       const found = data.users.find((u) => (u.email || "").toLowerCase() === email);
       if (found) { target = { id: found.id }; break; }
       if (data.users.length < 200) break;
     }
     if (!target) {
+      console.error("[reset-pw] user not found", email, lastErr?.message);
       return new Response(JSON.stringify({ error: "User not found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { error: upErr } = await admin.auth.admin.updateUserById(target.id, { password });
+    const { error: upErr } = await admin.auth.admin.updateUserById(target.id, {
+      password,
+      email_confirm: true,
+    });
     if (upErr) {
+      console.error("[reset-pw] updateUserById failed", upErr.message);
       return new Response(JSON.stringify({ error: upErr.message }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    console.log("[reset-pw] success", { caller: callerEmail, target: email });
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
+    console.error("[reset-pw] crash", (e as Error).message);
     return new Response(JSON.stringify({ error: (e as Error).message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
