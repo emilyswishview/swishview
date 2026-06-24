@@ -3938,35 +3938,83 @@ ${vidBlock(2)}`;
                   if (col.type === "growth") {
 
                     const g = computeDailyGrowth(row.snapshots);
-                    const chartData = (row.snapshots || []).map(s => ({ date: s.date.slice(5), subs: s.subscribers }));
+                    const sortedSnaps = [...(row.snapshots || [])].sort((a, b) => a.date.localeCompare(b.date));
+                    const chartData = sortedSnaps.map((s, i) => {
+                      const prev = sortedSnaps[i - 1];
+                      const delta = prev ? s.subscribers - prev.subscribers : 0;
+                      return { date: s.date.slice(5), subs: s.subscribers, delta };
+                    });
+                    const headline = g?.perDay ?? 0;
                     return (
                       <td key="growthChart" className="border border-border p-0 text-center" style={{ width: col.width, minWidth: col.width }}>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="w-full h-7 px-2 inline-flex items-center justify-between gap-1 hover:bg-accent text-xs">
+                            <button
+                              className="w-full h-7 px-2 inline-flex items-center justify-between gap-1 hover:bg-accent text-xs"
+                              title={g ? `1d ${g.last1d ?? "—"} · 7d avg ${g.avg7d ?? "—"} · 30d avg ${g.avg30d ?? "—"} · total ${g.total >= 0 ? "+" : ""}${g.total} over ${g.days}d` : "No snapshots yet"}
+                            >
                               <span className="inline-flex items-center gap-1">
                                 <TrendingUp className="h-3 w-3 text-primary" />
-                                {g ? <span className={g.perDay >= 0 ? "text-green-600" : "text-red-600"}>
-                                  {g.perDay >= 0 ? "+" : ""}{fmtCompact(g.perDay)}/d
-                                </span> : <span className="text-muted-foreground">—</span>}
+                                {g && sortedSnaps.length >= 2 ? (
+                                  <span className={headline >= 0 ? "text-green-600" : "text-red-600"}>
+                                    {headline >= 0 ? "+" : ""}{fmtCompact(headline)}/d
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
                               </span>
-                              <span className="text-muted-foreground text-[10px]">{(row.snapshots || []).length}d</span>
+                              <span className="text-muted-foreground text-[10px]">{sortedSnaps.length}d</span>
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-80 p-3" align="start">
-                            <div className="text-sm font-semibold mb-1">{row.channelName || "Channel"} – Subscriber Growth</div>
+                          <PopoverContent className="w-[22rem] p-3" align="start">
+                            <div className="text-sm font-semibold mb-2">{row.channelName || "Channel"} – Subscriber Growth</div>
                             {chartData.length < 2 ? (
                               <div className="text-xs text-muted-foreground py-6 text-center">
-                                Not enough data yet. Use <strong>Sync All</strong> daily to build the graph.
+                                Not enough data yet. Daily sync builds this graph over time.
                               </div>
                             ) : (
                               <>
-                                <div className="h-40">
+                                {g && (
+                                  <div className="grid grid-cols-4 gap-2 mb-3 text-center">
+                                    {[
+                                      { label: "1d", val: g.last1d },
+                                      { label: "7d avg", val: g.avg7d },
+                                      { label: "30d avg", val: g.avg30d },
+                                      { label: `${g.days}d total`, val: g.total },
+                                    ].map(({ label, val }) => (
+                                      <div key={label} className="rounded border border-border bg-muted/30 px-1.5 py-1">
+                                        <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</div>
+                                        <div className={`text-xs font-semibold ${val == null ? "text-muted-foreground" : (val >= 0 ? "text-green-600" : "text-red-600")}`}>
+                                          {val == null ? "—" : `${val >= 0 ? "+" : ""}${fmtCompact(val)}`}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {g && (
+                                  <div className="flex justify-between text-[10px] text-muted-foreground mb-2 px-0.5">
+                                    <span>Total growth: <span className={g.pct >= 0 ? "text-green-600" : "text-red-600"}>{g.pct >= 0 ? "+" : ""}{g.pct}%</span></span>
+                                    <span>Views/day avg: {fmtCompact(g.viewsPerDay)}</span>
+                                  </div>
+                                )}
+                                <div className="h-36">
                                   <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={chartData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
                                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                                       <YAxis tick={{ fontSize: 10 }} tickFormatter={fmtCompact} width={40} />
-                                      <Tooltip formatter={(v: any) => fmtCompact(Number(v))} />
+                                      <Tooltip
+                                        formatter={(v: any, name: any, p: any) => {
+                                          if (name === "subs") return [fmtCompact(Number(v)), "Subs"];
+                                          return [fmtCompact(Number(v)), name];
+                                        }}
+                                        labelFormatter={(label: any, payload: any) => {
+                                          const d = payload?.[0]?.payload;
+                                          if (!d) return label;
+                                          const delta = d.delta || 0;
+                                          const sign = delta >= 0 ? "+" : "";
+                                          return `${label}  ·  ${sign}${fmtCompact(delta)} vs prev`;
+                                        }}
+                                      />
                                       <Line type="monotone" dataKey="subs" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 2 }} />
                                     </LineChart>
                                   </ResponsiveContainer>
