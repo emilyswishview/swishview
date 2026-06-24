@@ -256,13 +256,53 @@ const addSnapshot = (existing: Snapshot[] = [], snap: Snapshot): Snapshot[] => {
   return [...filtered, snap].sort((a, b) => a.date.localeCompare(b.date)).slice(-90);
 };
 
+// Detailed growth analytics from a snapshot series.
+// Returns null when there's no snapshot at all, otherwise gives:
+//  - perDay:   the headline number shown in the cell (7d avg if available,
+//              else last-day delta, else 0)
+//  - last1d:   subs gained since the most recent prior snapshot
+//  - avg7d:    average subs/day over the most recent ≤7-day window
+//  - avg30d:   average subs/day over the most recent ≤30-day window
+//  - total:    total subs gained across the full snapshot window
+//  - days:     number of days the snapshot window covers
+//  - pct:      total % growth over the window (rounded to 0.01)
+//  - viewsPerDay: avg total-views/day over the same window (when available)
 const computeDailyGrowth = (snaps: Snapshot[] = []) => {
-  if (!snaps || snaps.length < 2) return null;
-  const last = snaps[snaps.length - 1];
-  const prev = snaps[snaps.length - 2];
-  const days = Math.max(1, Math.round((+new Date(last.date) - +new Date(prev.date)) / 86400000));
-  const diff = last.subscribers - prev.subscribers;
-  return { perDay: Math.round(diff / days), total: diff, days };
+  if (!snaps || snaps.length === 0) return null;
+  const sorted = [...snaps].sort((a, b) => a.date.localeCompare(b.date));
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  const daySpan = (a: Snapshot, b: Snapshot) =>
+    Math.max(1, Math.round((+new Date(b.date) - +new Date(a.date)) / 86400000));
+
+  const avgWindow = (windowDays: number) => {
+    const cutoff = +new Date(last.date) - windowDays * 86400000;
+    const inWindow = sorted.filter(s => +new Date(s.date) >= cutoff);
+    if (inWindow.length < 2) return null;
+    const a = inWindow[0];
+    const b = inWindow[inWindow.length - 1];
+    const days = daySpan(a, b);
+    return Math.round((b.subscribers - a.subscribers) / days);
+  };
+
+  let last1d: number | null = null;
+  if (sorted.length >= 2) {
+    const prev = sorted[sorted.length - 2];
+    const days = daySpan(prev, last);
+    last1d = Math.round((last.subscribers - prev.subscribers) / days);
+  }
+  const avg7d = avgWindow(7);
+  const avg30d = avgWindow(30);
+  const totalDays = sorted.length >= 2 ? daySpan(first, last) : 0;
+  const total = sorted.length >= 2 ? last.subscribers - first.subscribers : 0;
+  const pct = sorted.length >= 2 && first.subscribers > 0
+    ? Math.round(((last.subscribers - first.subscribers) / first.subscribers) * 10000) / 100
+    : 0;
+  const viewsTotal = sorted.length >= 2 ? (last.totalViews ?? 0) - (first.totalViews ?? 0) : 0;
+  const viewsPerDay = totalDays > 0 ? Math.round(viewsTotal / totalDays) : 0;
+
+  const perDay = avg7d ?? last1d ?? 0;
+  return { perDay, last1d, avg7d, avg30d, total, days: totalDays, pct, viewsPerDay };
 };
 
 const isYouTubeUrl = (s: string) => /youtube\.com|youtu\.be/i.test(s || "");
@@ -1701,10 +1741,16 @@ WhatsApp - +1 (705) 614 0340`;
       else q = q.eq("is_banned", false);
       if (sourceFilter === "discovered") q = q.eq("auto_discovered", true);
       else if (sourceFilter === "prospects") {
+        // Qualified leads: have an enriched channel name OR meet the subs floor.
+        // `channel_name` is stored as "" for unenriched rows (never NULL), so
+        // `.neq("channel_name","")` correctly excludes empty strings.
         q = q.eq("auto_discovered", false)
-             .or("channel_name.not.is.null,subscribers_live.gte.500,subscribers_live.is.null");
+             .or("channel_name.neq.,subscribers_live.gte.500");
       } else if (sourceFilter === "unqualified") {
-        q = q.eq("auto_discovered", false).is("channel_name", null).lt("subscribers_live", 500);
+        // Unqualified = no channel name AND below the subs floor (or unknown).
+        q = q.eq("auto_discovered", false)
+             .eq("channel_name", "")
+             .or("subscribers_live.lt.500,subscribers_live.is.null");
       }
       // Sales reps only see rows assigned to them. Admin sees everything.
       if (ownerSenders) q = q.in("assigned_sender", ownerSenders);
@@ -3161,9 +3207,11 @@ WhatsApp - +1 (705) 614 0340`;
         if (sourceFilter === "discovered") q = q.eq("auto_discovered", true);
         else if (sourceFilter === "prospects") {
           q = q.eq("auto_discovered", false)
-               .or("channel_name.not.is.null,subscribers_live.gte.500,subscribers_live.is.null");
+               .or("channel_name.neq.,subscribers_live.gte.500");
         } else if (sourceFilter === "unqualified") {
-          q = q.eq("auto_discovered", false).is("channel_name", null).lt("subscribers_live", 500);
+          q = q.eq("auto_discovered", false)
+               .eq("channel_name", "")
+               .or("subscribers_live.lt.500,subscribers_live.is.null");
         }
         const { data, error } = await q;
         if (error) throw error;
@@ -3228,9 +3276,11 @@ WhatsApp - +1 (705) 614 0340`;
         if (sourceFilter === "discovered") q = q.eq("auto_discovered", true);
         else if (sourceFilter === "prospects") {
           q = q.eq("auto_discovered", false)
-               .or("channel_name.not.is.null,subscribers_live.gte.500,subscribers_live.is.null");
+               .or("channel_name.neq.,subscribers_live.gte.500");
         } else if (sourceFilter === "unqualified") {
-          q = q.eq("auto_discovered", false).is("channel_name", null).lt("subscribers_live", 500);
+          q = q.eq("auto_discovered", false)
+               .eq("channel_name", "")
+               .or("subscribers_live.lt.500,subscribers_live.is.null");
         }
         const { data, error } = await q;
         if (error) throw error;
@@ -3427,9 +3477,11 @@ ${vidBlock(2)}`;
                   if (sourceFilter === "discovered") q = q.eq("auto_discovered", true);
                   else if (sourceFilter === "prospects") {
                     q = q.eq("auto_discovered", false)
-                         .or("channel_name.not.is.null,subscribers_live.gte.500,subscribers_live.is.null");
+                         .or("channel_name.neq.,subscribers_live.gte.500");
                   } else if (sourceFilter === "unqualified") {
-                    q = q.eq("auto_discovered", false).is("channel_name", null).lt("subscribers_live", 500);
+                    q = q.eq("auto_discovered", false)
+                         .eq("channel_name", "")
+                         .or("subscribers_live.lt.500,subscribers_live.is.null");
                   }
                   const { data, error } = await q;
                   if (error) throw error;
@@ -3886,35 +3938,83 @@ ${vidBlock(2)}`;
                   if (col.type === "growth") {
 
                     const g = computeDailyGrowth(row.snapshots);
-                    const chartData = (row.snapshots || []).map(s => ({ date: s.date.slice(5), subs: s.subscribers }));
+                    const sortedSnaps = [...(row.snapshots || [])].sort((a, b) => a.date.localeCompare(b.date));
+                    const chartData = sortedSnaps.map((s, i) => {
+                      const prev = sortedSnaps[i - 1];
+                      const delta = prev ? s.subscribers - prev.subscribers : 0;
+                      return { date: s.date.slice(5), subs: s.subscribers, delta };
+                    });
+                    const headline = g?.perDay ?? 0;
                     return (
                       <td key="growthChart" className="border border-border p-0 text-center" style={{ width: col.width, minWidth: col.width }}>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="w-full h-7 px-2 inline-flex items-center justify-between gap-1 hover:bg-accent text-xs">
+                            <button
+                              className="w-full h-7 px-2 inline-flex items-center justify-between gap-1 hover:bg-accent text-xs"
+                              title={g ? `1d ${g.last1d ?? "—"} · 7d avg ${g.avg7d ?? "—"} · 30d avg ${g.avg30d ?? "—"} · total ${g.total >= 0 ? "+" : ""}${g.total} over ${g.days}d` : "No snapshots yet"}
+                            >
                               <span className="inline-flex items-center gap-1">
                                 <TrendingUp className="h-3 w-3 text-primary" />
-                                {g ? <span className={g.perDay >= 0 ? "text-green-600" : "text-red-600"}>
-                                  {g.perDay >= 0 ? "+" : ""}{fmtCompact(g.perDay)}/d
-                                </span> : <span className="text-muted-foreground">—</span>}
+                                {g && sortedSnaps.length >= 2 ? (
+                                  <span className={headline >= 0 ? "text-green-600" : "text-red-600"}>
+                                    {headline >= 0 ? "+" : ""}{fmtCompact(headline)}/d
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
                               </span>
-                              <span className="text-muted-foreground text-[10px]">{(row.snapshots || []).length}d</span>
+                              <span className="text-muted-foreground text-[10px]">{sortedSnaps.length}d</span>
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-80 p-3" align="start">
-                            <div className="text-sm font-semibold mb-1">{row.channelName || "Channel"} – Subscriber Growth</div>
+                          <PopoverContent className="w-[22rem] p-3" align="start">
+                            <div className="text-sm font-semibold mb-2">{row.channelName || "Channel"} – Subscriber Growth</div>
                             {chartData.length < 2 ? (
                               <div className="text-xs text-muted-foreground py-6 text-center">
-                                Not enough data yet. Use <strong>Sync All</strong> daily to build the graph.
+                                Not enough data yet. Daily sync builds this graph over time.
                               </div>
                             ) : (
                               <>
-                                <div className="h-40">
+                                {g && (
+                                  <div className="grid grid-cols-4 gap-2 mb-3 text-center">
+                                    {[
+                                      { label: "1d", val: g.last1d },
+                                      { label: "7d avg", val: g.avg7d },
+                                      { label: "30d avg", val: g.avg30d },
+                                      { label: `${g.days}d total`, val: g.total },
+                                    ].map(({ label, val }) => (
+                                      <div key={label} className="rounded border border-border bg-muted/30 px-1.5 py-1">
+                                        <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</div>
+                                        <div className={`text-xs font-semibold ${val == null ? "text-muted-foreground" : (val >= 0 ? "text-green-600" : "text-red-600")}`}>
+                                          {val == null ? "—" : `${val >= 0 ? "+" : ""}${fmtCompact(val)}`}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {g && (
+                                  <div className="flex justify-between text-[10px] text-muted-foreground mb-2 px-0.5">
+                                    <span>Total growth: <span className={g.pct >= 0 ? "text-green-600" : "text-red-600"}>{g.pct >= 0 ? "+" : ""}{g.pct}%</span></span>
+                                    <span>Views/day avg: {fmtCompact(g.viewsPerDay)}</span>
+                                  </div>
+                                )}
+                                <div className="h-36">
                                   <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={chartData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
                                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                                       <YAxis tick={{ fontSize: 10 }} tickFormatter={fmtCompact} width={40} />
-                                      <Tooltip formatter={(v: any) => fmtCompact(Number(v))} />
+                                      <Tooltip
+                                        formatter={(v: any, name: any, p: any) => {
+                                          if (name === "subs") return [fmtCompact(Number(v)), "Subs"];
+                                          return [fmtCompact(Number(v)), name];
+                                        }}
+                                        labelFormatter={(label: any, payload: any) => {
+                                          const d = payload?.[0]?.payload;
+                                          if (!d) return label;
+                                          const delta = d.delta || 0;
+                                          const sign = delta >= 0 ? "+" : "";
+                                          return `${label}  ·  ${sign}${fmtCompact(delta)} vs prev`;
+                                        }}
+                                      />
                                       <Line type="monotone" dataKey="subs" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 2 }} />
                                     </LineChart>
                                   </ResponsiveContainer>
