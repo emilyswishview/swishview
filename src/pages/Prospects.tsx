@@ -3167,9 +3167,11 @@ WhatsApp - +1 (705) 614 0340`;
         if (sourceFilter === "discovered") q = q.eq("auto_discovered", true);
         else if (sourceFilter === "prospects") {
           q = q.eq("auto_discovered", false)
-               .or("channel_name.not.is.null,subscribers_live.gte.500,subscribers_live.is.null");
+               .or("channel_name.neq.,subscribers_live.gte.500");
         } else if (sourceFilter === "unqualified") {
-          q = q.eq("auto_discovered", false).is("channel_name", null).lt("subscribers_live", 500);
+          q = q.eq("auto_discovered", false)
+               .eq("channel_name", "")
+               .or("subscribers_live.lt.500,subscribers_live.is.null");
         }
         const { data, error } = await q;
         if (error) throw error;
@@ -3234,9 +3236,11 @@ WhatsApp - +1 (705) 614 0340`;
         if (sourceFilter === "discovered") q = q.eq("auto_discovered", true);
         else if (sourceFilter === "prospects") {
           q = q.eq("auto_discovered", false)
-               .or("channel_name.not.is.null,subscribers_live.gte.500,subscribers_live.is.null");
+               .or("channel_name.neq.,subscribers_live.gte.500");
         } else if (sourceFilter === "unqualified") {
-          q = q.eq("auto_discovered", false).is("channel_name", null).lt("subscribers_live", 500);
+          q = q.eq("auto_discovered", false)
+               .eq("channel_name", "")
+               .or("subscribers_live.lt.500,subscribers_live.is.null");
         }
         const { data, error } = await q;
         if (error) throw error;
