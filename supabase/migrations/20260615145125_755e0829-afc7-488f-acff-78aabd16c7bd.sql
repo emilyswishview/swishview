@@ -1,0 +1,1 @@
+ALTER TABLE public.prospects ADD COLUMN IF NOT EXISTS is_banned boolean NOT NULL DEFAULT false;
