@@ -1,0 +1,6 @@
+- [ ] Stabilize V1 lead-engine worker and complete reliable Calling Leads handoff
+- [ ] Verify autopilot, queue recovery, deduplication, quota switching, and search exhaustion behavior
+- [ ] Improve mobile performance and responsive layout on the public site
+- [ ] Add reliable previous-page/back navigation from dashboard views
+- [ ] Connect the desktop About tab to the correct About destination/content
+- [ ] Validate targeted routes and review remaining V2 gaps
