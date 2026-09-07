@@ -649,7 +649,7 @@ export default function CallingLeadsPanel({
                     />
                   </th>
                 )}
-                <th className="text-left p-2 font-medium">Channel</th>
+                <th className="text-left p-2 font-medium">Creator name</th>
                 <th className="text-left p-2 font-medium">Phone</th>
                 <th className="text-left p-2 font-medium">Email</th>
                 <th className="text-left p-2 font-medium">Last Video</th>
@@ -692,7 +692,7 @@ export default function CallingLeadsPanel({
                       {r.thumbnail
                         ? <img
                             src={r.thumbnail}
-                            alt={r.channel_name || "Channel thumbnail"}
+                            alt={r.channel_name || "Creator thumbnail"}
                             className="h-11 w-11 rounded-md object-cover border border-border shrink-0"
                             loading="lazy"
                           />
