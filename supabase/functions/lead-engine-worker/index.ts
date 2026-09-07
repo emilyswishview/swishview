@@ -25,6 +25,29 @@ const NICHE_SEED = [
   "immigration consultant", "study abroad consultant", "stock market trainer", "startup founder",
 ];
 
+// YouTube's regionCode only accepts ISO country codes. These location phrases
+// stay in the search query so the API can target city/state coverage without
+// sending invalid region values.
+const LOCATION_SEED = [
+  ["New York City, New York", "US"], ["Los Angeles, California", "US"], ["Chicago, Illinois", "US"],
+  ["Houston, Texas", "US"], ["Phoenix, Arizona", "US"], ["Philadelphia, Pennsylvania", "US"],
+  ["San Antonio, Texas", "US"], ["San Diego, California", "US"], ["Dallas, Texas", "US"],
+  ["Austin, Texas", "US"], ["San Jose, California", "US"], ["Seattle, Washington", "US"],
+  ["Denver, Colorado", "US"], ["Boston, Massachusetts", "US"], ["Miami, Florida", "US"],
+  ["Atlanta, Georgia", "US"], ["Las Vegas, Nevada", "US"], ["Portland, Oregon", "US"],
+  ["Minneapolis, Minnesota", "US"], ["Detroit, Michigan", "US"], ["Nashville, Tennessee", "US"],
+  ["Charlotte, North Carolina", "US"], ["Orlando, Florida", "US"], ["Tampa, Florida", "US"],
+  ["New Orleans, Louisiana", "US"], ["Salt Lake City, Utah", "US"], ["Washington, DC", "US"],
+  ["New Jersey", "US"], ["California", "US"], ["Texas", "US"], ["Florida", "US"], ["Illinois", "US"],
+  ["Toronto, Ontario", "CA"], ["Vancouver, British Columbia", "CA"], ["Montreal, Quebec", "CA"],
+  ["Calgary, Alberta", "CA"], ["Edmonton, Alberta", "CA"], ["Ottawa, Ontario", "CA"],
+  ["Winnipeg, Manitoba", "CA"], ["Quebec City, Quebec", "CA"], ["Halifax, Nova Scotia", "CA"],
+  ["Mississauga, Ontario", "CA"], ["Melbourne, Victoria", "AU"], ["Sydney, New South Wales", "AU"],
+  ["Brisbane, Queensland", "AU"], ["Perth, Western Australia", "AU"], ["Adelaide, South Australia", "AU"],
+  ["London, England", "GB"], ["Manchester, England", "GB"], ["Birmingham, England", "GB"],
+  ["Glasgow, Scotland", "GB"],
+].map(([label, region]) => ({ label, region, suffix: ` in ${label}` }));
+
 const INTENTS: Record<string, string[]> = {
   channel: ["{n}"],
   commercial: ["{n} business enquiry", "{n} contact number"],
@@ -83,13 +106,27 @@ async function refillFrontier(ctx: Ctx, force = false) {
 
   const niches: string[] = (cfg.niches?.length ? cfg.niches : NICHE_SEED);
   const markets = cfg.markets as { region: string; language: string }[];
+  const allowedRegions = new Set(markets.map((m) => m.region));
+  const configuredLocations = Array.isArray(cfg.locations) && cfg.locations.length
+    ? cfg.locations
+    : LOCATION_SEED;
+  const locations = configuredLocations
+    .filter((location: any) => location?.region && allowedRegions.has(location.region))
+    .map((location: any) => ({
+      label: String(location.label || location.name || location.query || location.region),
+      region: String(location.region),
+      suffix: String(location.suffix || ` in ${location.label || location.name || location.query || location.region}`),
+    }));
+  const searchLocations = locations.length
+    ? locations
+    : markets.map((market) => ({ label: market.region, region: market.region, suffix: "" }));
   const strategies: string[] = cfg.strategies;
   const orders: string[] = cfg.orders;
 
   // Seeding the whole segment matrix is expensive (thousands of upserts) and only
   // needs to happen once per config shape — skip it when the frontier already exists,
   // otherwise every tick burns its entire wall-clock budget here and never searches.
-  const expected = niches.length * markets.length *
+  const expected = niches.length * searchLocations.length *
     strategies.reduce((n, s) => n + (INTENTS[s]?.length || 1), 0) * orders.length;
   const { count: segCount } = await sb.from("search_segments")
     .select("id", { count: "exact", head: true });
@@ -98,10 +135,11 @@ async function refillFrontier(ctx: Ctx, force = false) {
   if ((segCount || 0) < expected) {
     const rows: any[] = [];
     for (const niche of niches) {
-      for (const market of markets) {
+      for (const location of searchLocations) {
+        const market = markets.find((candidate) => candidate.region === location.region) || markets[0];
         for (const strategy of strategies) {
           for (const tmpl of INTENTS[strategy] || ["{n}"]) {
-            const query = tmpl.replace("{n}", niche);
+            const query = `${tmpl.replace("{n}", niche)}${location.suffix}`.trim();
             for (const order of orders) {
               const sig = searchSignature({
                 query, region: market.region, language: market.language, order, strategy,
@@ -493,7 +531,7 @@ async function runContactJob(ctx: Ctx, job: any) {
   if (phoneSaved) {
     const { error: clErr } = await sb.rpc("upsert_calling_lead_from_channel", {
       _channel_id: channelId,
-      _channel_name: ch.title || "",
+      _channel_name: ch.title || channelId,
       _channel_link: ch.url || `https://www.youtube.com/channel/${channelId}`,
       _thumbnail: ch.thumbnail || "",
       _phone: phoneSaved,
