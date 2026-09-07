@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_prospects_sync_pending ON public.prospects (last_fetched_at NULLS FIRST) WHERE channel_link <> '' AND channel_link IS NOT NULL;

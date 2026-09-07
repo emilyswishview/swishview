@@ -1,0 +1,26 @@
+# Swish View
+
+> Swish View is a YouTube growth company. We deliver real views, channel SEO, thumbnail and title optimization, and managed promotion campaigns for creators and brands.
+
+## Key pages
+
+- [Home](https://www.swishview.com/): Overview of Swish View's YouTube promotion services.
+- [Product](https://www.swishview.com/product): How the promotion and growth platform works.
+- [Pricing](https://www.swishview.com/pricing): Campaign plans and pricing tiers.
+- [Channel Growth](https://www.swishview.com/channel-growth): Promote a YouTube channel with targeted campaigns.
+- [Channel Audit](https://www.swishview.com/channel-audit): Free audit of a YouTube channel's performance.
+- [Blogs](https://www.swishview.com/blogs): Guides and articles on YouTube growth and SEO.
+- [Why Swish View](https://www.swishview.com/why-swishview): What makes our approach different.
+- [Reviews](https://www.swishview.com/reviews): Creator results and testimonials.
+- [Contact](https://www.swishview.com/contact): Talk to a growth manager.
+
+## Policies
+
+- [Privacy Policy](https://www.swishview.com/privacy-policy)
+- [Terms & Conditions](https://www.swishview.com/terms-conditions)
+- [Cancellation & Refund](https://www.swishview.com/refund-policy)
+- [Shipping Policy](https://www.swishview.com/shipping-policy)
+
+## Optional
+
+- [Sitemap](https://www.swishview.com/sitemap.xml): Full list of indexable URLs.
