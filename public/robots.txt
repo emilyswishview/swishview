@@ -1,0 +1,36 @@
+# Swish View - Robots.txt
+
+User-agent: *
+Allow: /
+
+# Creator profiles and blogs
+Allow: /blogs/
+Allow: /blog-post/
+Allow: /creator/
+
+# Disallow admin and private areas
+Disallow: /admin
+Disallow: /admin-dashboard
+Disallow: /dashboard
+Disallow: /login
+Disallow: /signup
+Disallow: /auth
+Disallow: /profile
+Disallow: /payment
+Disallow: /success
+Disallow: /blogs-management
+Disallow: /campaign-management
+Disallow: /tracker
+Disallow: /email-tracker
+Disallow: /partners
+Disallow: /create-seo
+Disallow: /create-campaign
+Disallow: /create-promotion
+Disallow: /forgot-password
+Disallow: /reset-password
+
+# Disallow API endpoints
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://www.swishview.com/sitemap.xml
