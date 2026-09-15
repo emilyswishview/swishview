@@ -155,6 +155,7 @@ function App() {
                   <Route path="/prospects/unqualified" element={<Prospects />} />
                   <Route path="/prospects/banned" element={<Prospects />} />
                   <Route path="/prospects/calling" element={<Prospects />} />
+                  <Route path="/prospects/users" element={<Prospects />} />
                   <Route path="/prospects/queue" element={<Prospects />} />
                   <Route path="/prospects/bounces" element={<Prospects />} />
                   <Route path="/seo" element={<SEOManager />} />

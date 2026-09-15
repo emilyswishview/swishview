@@ -4,13 +4,14 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 /** Each Prospects tab is its own URL so it can be bookmarked, shared and
  *  reached with the browser back/forward buttons. */
-export type ProspectsTab = "prospects" | "discovered" | "banned" | "unqualified" | "bounced" | "calling";
+export type ProspectsTab = "prospects" | "discovered" | "banned" | "unqualified" | "bounced" | "calling" | "users";
 const TAB_TO_PATH: Record<ProspectsTab, string> = {
   prospects: "/prospects/leads",
   unqualified: "/prospects/unqualified",
   banned: "/prospects/banned",
   bounced: "/prospects/bounces",
   calling: "/prospects/calling",
+  users: "/prospects/users",
   discovered: "/prospects/leads",
 };
 const pathToTab = (pathname: string): ProspectsTab | null => {
@@ -18,6 +19,7 @@ const pathToTab = (pathname: string): ProspectsTab | null => {
   if (pathname.startsWith("/prospects/banned")) return "banned";
   if (pathname.startsWith("/prospects/bounces")) return "bounced";
   if (pathname.startsWith("/prospects/calling")) return "calling";
+  if (pathname.startsWith("/prospects/users")) return "users";
   if (pathname.startsWith("/prospects/leads")) return "prospects";
   return null; // /prospects and /prospects/queue keep the last used tab
 };
@@ -35,6 +37,7 @@ import { FlaskConical, Inbox, LogOut } from "lucide-react";
 const SendQueuePanel = React.lazy(() => import("@/components/prospects/SendQueuePanel"));
 const BouncedEmailsPanel = React.lazy(() => import("@/components/prospects/BouncedEmailsPanel"));
 const CallingLeadsPanel = React.lazy(() => import("@/components/prospects/CallingLeadsPanel"));
+const LoggedInUsersPanel = React.lazy(() => import("@/components/prospects/LoggedInUsersPanel"));
 import {
   Loader2, Plus, Trash2, RefreshCw, Search, ExternalLink,
   TrendingUp, Video, ArrowDown, ArrowUp, Zap, Filter,
@@ -1874,7 +1877,7 @@ WhatsApp - +1 (705) 614 0340`;
     };
     (async () => {
       // Bounced tab renders its own panel and fetches its own data.
-      if (sourceFilter === "bounced" || sourceFilter === "calling") { setLoading(false); return; }
+      if (sourceFilter === "bounced" || sourceFilter === "calling" || sourceFilter === "users") { setLoading(false); return; }
       setLoading(true);
       if (onlyWithConv || onlyWithPhone || hasColumnFilters) {
         const all: any[] = [];
@@ -3990,6 +3993,18 @@ ${vidBlock(2)}`;
             >
               Calling
             </button>
+            {isAdmin && (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={sourceFilter === "users"}
+                onClick={() => setSourceFilter("users")}
+                className={`px-2.5 h-7 text-xs rounded ${sourceFilter === "users" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent/50"}`}
+                title="Website users and their activity"
+              >
+                Swishview logged in user
+              </button>
+            )}
           </div>
 
 
@@ -4143,7 +4158,11 @@ ${vidBlock(2)}`;
       </div>
 
 
-      {sourceFilter === "calling" ? (
+      {sourceFilter === "users" ? (
+        <React.Suspense fallback={<div className="p-6 text-xs text-muted-foreground">Loading website users…</div>}>
+          <LoggedInUsersPanel />
+        </React.Suspense>
+      ) : sourceFilter === "calling" ? (
         <div className="flex-1 min-h-0 overflow-auto p-4">
           <React.Suspense fallback={<div className="p-6 text-xs text-muted-foreground">Loading calling leads…</div>}>
             <CallingLeadsPanel canDelete={canDelete} isAdmin={isAdmin} currentEmail={authedEmail} />
