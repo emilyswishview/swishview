@@ -1,0 +1,1 @@
+ALTER TABLE public.reports ADD COLUMN IF NOT EXISTS admin_notes text, ADD COLUMN IF NOT EXISTS recommendations jsonb DEFAULT '[]'::jsonb;
