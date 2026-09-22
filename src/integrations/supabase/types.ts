@@ -3639,6 +3639,7 @@ export type Database = {
         Returns: boolean
       }
       is_swishview_staff: { Args: { _user_id?: string }; Returns: boolean }
+      lead_engine_counts: { Args: never; Returns: Json }
       make_user_admin: { Args: { user_email: string }; Returns: undefined }
       mark_api_project: {
         Args: { _cooldown_seconds: number; _project: string; _status: string }
