@@ -1,0 +1,4 @@
+- [ ] Make shared public navigation and footer mobile-first.
+- [ ] Add consistent mobile page spacing and bottom-nav clearance across public pages.
+- [ ] Keep admin, CRM, tracker, and prospect workspaces usable on narrow screens.
+- [ ] Verify key routes at mobile width and confirm no horizontal overflow.
