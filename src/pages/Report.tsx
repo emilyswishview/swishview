@@ -89,7 +89,14 @@ export default function Report() {
 
   useEffect(() => {
     document.body.classList.add("report-print-page");
-    return () => document.body.classList.remove("report-print-page");
+    if (new URLSearchParams(window.location.search).get("capture") === "1") {
+      document.body.classList.add("report-capture-page");
+    }
+    return () => {
+      document.body.classList.remove("report-print-page");
+      document.body.classList.remove("report-capture-page");
+      delete document.body.dataset.reportCaptureReady;
+    };
   }, []);
 
   useEffect(() => {
@@ -109,6 +116,24 @@ export default function Report() {
       }
     })();
   }, [slug]);
+
+  useEffect(() => {
+    if (loading || notFound || !r) return;
+    let cancelled = false;
+    const markReady = async () => {
+      try { await document.fonts?.ready; } catch {}
+      await Promise.all(Array.from(document.images).map((img) => img.complete
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => {
+            img.addEventListener("load", () => resolve(), { once: true });
+            img.addEventListener("error", () => resolve(), { once: true });
+          })));
+      await new Promise(resolve => window.setTimeout(resolve, 350));
+      if (!cancelled) document.body.dataset.reportCaptureReady = "true";
+    };
+    markReady();
+    return () => { cancelled = true; };
+  }, [loading, notFound, r, yt]);
 
 
   const d = useMemo(() => {
@@ -235,9 +260,9 @@ export default function Report() {
         </div>
       </div>
 
-      <div className="max-w-[900px] mx-auto bg-white shadow-sm my-2 sm:my-4 print:my-0 print:shadow-none border border-gray-300 print:border-0">
+      <div data-report-document className="report-document max-w-[900px] mx-auto bg-white shadow-sm my-2 sm:my-4 print:my-0 print:shadow-none border border-gray-300 print:border-0">
         {/* Header */}
-        <div className="border-b border-gray-300 px-4 sm:px-6 pt-4 sm:pt-5 pb-3">
+        <div data-pdf-section className="border-b border-gray-300 px-4 sm:px-6 pt-4 sm:pt-5 pb-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-gray-500 font-bold">
@@ -266,7 +291,7 @@ export default function Report() {
         {/* Body — responsive grid */}
         <div className="px-4 sm:px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
           {/* 1. Snapshot */}
-          <div className="md:col-span-2">
+          <div data-pdf-section className="md:col-span-2">
             <H>1. Channel Snapshot</H>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
               <Cell label="Subscribers" value={fmt(r.subscribers)} sub={num(r.subscribers)} />
@@ -279,7 +304,7 @@ export default function Report() {
           </div>
 
           {/* 2. Overall */}
-          <div className="md:col-span-2">
+          <div data-pdf-section className="md:col-span-2">
             <H>2. Overall Performance Index</H>
             <div className="border border-gray-300 p-3">
               <div className="grid grid-cols-1 sm:grid-cols-[110px,1fr,140px] items-center gap-3 sm:gap-4">
@@ -309,7 +334,7 @@ export default function Report() {
           </div>
 
           {/* 3. Growth */}
-          <div>
+          <div data-pdf-section>
             <H>3. Growth Analysis</H>
             <div className="border border-gray-300 px-3 pt-2 pb-4">
               <Gauge label="Subs / Year" value={d!.subsPerYear} low={1000} high={100000} min={0} max={500000} />
@@ -320,7 +345,7 @@ export default function Report() {
           </div>
 
           {/* 4. Engagement */}
-          <div>
+          <div data-pdf-section>
             <H>4. Engagement Diagnostic</H>
             <div className="border border-gray-300 px-3 pt-2 pb-4">
               <Gauge label="Engagement Rate" value={d!.engagementRate} unit="%" low={2} high={6} min={0} max={12} />
@@ -331,7 +356,7 @@ export default function Report() {
           </div>
 
           {/* 5. Recent stats */}
-          <div className="md:col-span-2">
+          <div data-pdf-section className="md:col-span-2">
             <H>5. Recent Performance (last {d!.videos.length} videos)</H>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
               <Cell label="Avg Views" value={fmt(d!.avgViews)} />
@@ -350,7 +375,7 @@ export default function Report() {
           </div>
 
           {/* 6. View distribution (pie chart) */}
-          <div>
+          <div data-pdf-section>
             <H>6. View Distribution</H>
             <div className="border border-gray-300 p-3">
               <div className="w-full h-56">
@@ -364,7 +389,8 @@ export default function Report() {
                       outerRadius={70}
                       paddingAngle={2}
                       label={({ name, value }) => value ? `${name}: ${value}` : ""}
-                      labelLine={false}
+                        labelLine={false}
+                        isAnimationActive={false}
                     >
                       {d!.buckets.map((_, i) => (
                         <RCell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
@@ -379,7 +405,7 @@ export default function Report() {
           </div>
 
           {/* 7. Upload Cadence (bar chart) */}
-          <div>
+          <div data-pdf-section>
             <H>7. Upload Cadence (last 12 months)</H>
             <div className="border border-gray-300 p-3">
               <div className="w-full h-56">
@@ -392,7 +418,7 @@ export default function Report() {
                       formatter={(v: any, k: string) => k === "views" ? [fmt(v as number), "Views"] : [v, "Uploads"]}
                       contentStyle={{ fontSize: 11 }}
                     />
-                    <Bar dataKey="uploads" fill="#ea580c" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="uploads" fill="#ea580c" radius={[3, 3, 0, 0]} isAnimationActive={false} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -401,7 +427,7 @@ export default function Report() {
           </div>
 
           {/* 7b. Views trend across recent uploads */}
-          <div className="md:col-span-2">
+          <div data-pdf-section className="md:col-span-2">
             <H>8. Views Trend Across Recent Uploads</H>
             <div className="border border-gray-300 p-3">
               <div className="w-full h-56">
@@ -417,7 +443,7 @@ export default function Report() {
                     <XAxis dataKey="idx" tick={{ fontSize: 10 }} label={{ value: "Video # (oldest → newest)", position: "insideBottom", fontSize: 10 }} />
                     <YAxis tickFormatter={(v) => fmt(v)} tick={{ fontSize: 10 }} />
                     <Tooltip formatter={(v: any) => [fmt(v as number), "Views"]} labelFormatter={(l) => `Video #${l}`} contentStyle={{ fontSize: 11 }} />
-                    <Line type="monotone" dataKey="views" stroke="#f97316" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                    <Line type="monotone" dataKey="views" stroke="#f97316" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} isAnimationActive={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -425,7 +451,7 @@ export default function Report() {
           </div>
 
           {/* Top 10 videos — table on md+, cards on mobile */}
-          <div className="md:col-span-2">
+          <div data-pdf-section className="md:col-span-2">
             <H>9. Top 10 Videos by Views</H>
             <div className="hidden md:block">
               <table className="w-full text-[11px] border border-gray-300">
@@ -492,7 +518,7 @@ export default function Report() {
           </div>
 
           {/* Diagnostic notes */}
-          <div className="md:col-span-2">
+          <div data-pdf-section className="md:col-span-2">
             <H>10. Diagnostic Notes</H>
             <div className="border border-gray-300 p-3 text-[11px] leading-relaxed space-y-2">
               <p><span className="font-bold">Reach:</span> The channel currently generates <span className="font-semibold tabular-nums">{d!.viewsPerSub}</span> lifetime views per subscriber. A value above 30 typically indicates strong non-subscriber discovery, while a value below 10 suggests the channel is largely serving its existing base.</p>
@@ -504,7 +530,7 @@ export default function Report() {
 
           {/* 11. Analyst notes / recommendations */}
           {(analystNotes || recommendations.length > 0) && (
-            <div className="md:col-span-2">
+            <div data-pdf-section className="md:col-span-2">
               <H>11. Analyst Recommendations</H>
               <div className="border border-gray-300 p-3 text-[11px] leading-relaxed space-y-3">
                 {analystNotes && (
@@ -522,7 +548,7 @@ export default function Report() {
           )}
 
           {/* 12. SEO Feedback — always shown, defaults to NA */}
-          <div className="md:col-span-2">
+          <div data-pdf-section className="md:col-span-2">
             <H>12. SEO Feedback</H>
             <div className="border border-gray-300 p-3 text-[11px] leading-relaxed">
               {seoFeedback ? (
@@ -534,7 +560,7 @@ export default function Report() {
           </div>
         </div>
 
-        <div className="border-t border-gray-300 px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[10px] text-gray-500 mb-20 sm:mb-0 pb-[env(safe-area-inset-bottom)]">
+        <div data-pdf-section className="border-t border-gray-300 px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[10px] text-gray-500 mb-20 sm:mb-0 pb-[env(safe-area-inset-bottom)]">
           <div className="flex items-center gap-1.5">
             <img src="/lovable-uploads/c66edb9b-3295-47cd-be47-4d81e262a4ff.png" alt="SwishView" className="h-10 w-auto object-contain" />
             <span>Analytics · Report {rid}</span>

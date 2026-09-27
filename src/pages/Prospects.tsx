@@ -41,9 +41,10 @@ const LoggedInUsersPanel = React.lazy(() => import("@/components/prospects/Logge
 import {
   Loader2, Plus, Trash2, RefreshCw, Search, ExternalLink,
   TrendingUp, Video, ArrowDown, ArrowUp, Zap, Filter,
-  Eye, EyeOff, Copy, CopyMinus, ClipboardCopy, ChevronLeft, ChevronRight, ChevronDown, Mail, Send, Reply, Paperclip, Sparkles, Pencil, Wand2, Upload, PhoneCall, FileText,
+  Eye, EyeOff, Copy, CopyMinus, ClipboardCopy, ChevronLeft, ChevronRight, ChevronDown, Mail, Send, Reply, Paperclip, Sparkles, Pencil, Wand2, Upload, PhoneCall, FileText, Download, MessageCircle,
 } from "lucide-react";
 import { openChannelReport } from "@/lib/channelReport";
+import { downloadLeadReportsZip, type ReportLead } from "@/lib/reportPdf";
 import { getClickedLinks, markLinkClicked } from "@/lib/linkClicks";
 
 
@@ -3301,20 +3302,22 @@ WhatsApp - +1 (705) 614 0340`;
 
   // ---- Bulk copy / Google Sheets export of selected leads (admin) ----
   const [bulkCopying, setBulkCopying] = useState(false);
-  const buildSelectedTable = async (): Promise<string[][]> => {
+  const loadSelectedLeads = async (): Promise<Prospect[]> => {
     const ids = Array.from(selected);
     const byId = new Map(rows.map(r => [r.id, r] as const));
     const missing = ids.filter(id => !byId.has(id));
     for (let i = 0; i < missing.length; i += 200) {
-      const { data, error } = await supabase
-        .from("prospects").select("id,data,assigned_sender").in("id", missing.slice(i, i + 200));
+      const { data, error } = await supabase.from("prospects").select("id,data,assigned_sender").in("id", missing.slice(i, i + 200));
       if (error) throw error;
       (data || []).forEach((r: any) => byId.set(r.id, {
         ...emptyProspect(), ...(r.data || {}), id: r.id,
         assignedSender: r.assigned_sender || (r.data?.assignedSender ?? ""),
       } as Prospect));
     }
-    const list = ids.map(id => byId.get(id)).filter(Boolean) as Prospect[];
+    return ids.map(id => byId.get(id)).filter(Boolean) as Prospect[];
+  };
+  const buildSelectedTable = async (): Promise<string[][]> => {
+    const list = await loadSelectedLeads();
     const links = Array.from(new Set(list.map(r => (r.channelLink || "").trim()).filter(Boolean)));
     const reportMap = new Map<string, string>();
     for (let i = 0; i < links.length; i += 200) {
@@ -3330,6 +3333,65 @@ WhatsApp - +1 (705) 614 0340`;
       reportMap.get((r.channelLink || "").trim()) || "",
     ]);
     return [header, ...body];
+  };
+  const [reportSheetState, setReportSheetState] = useState<string | null>(null);
+  const downloadSelectedReports = async () => {
+    if (!selected.size) return;
+    setReportSheetState("Preparing…");
+    try {
+      const list = await loadSelectedLeads();
+      const cols = COLUMNS.filter(c => !["growthChart", "lastVideo", "ytCapture"].includes(c.key as string));
+      const { made, failed } = await downloadLeadReportsZip(
+        list.map(r => ({ channelLink: r.channelLink, channelName: r.channelName || r.clientName, extra: r })),
+        [
+          ...cols.map(c => ({ header: c.label, value: (lead: ReportLead) => (lead.extra as any)?.[c.key] })),
+          { header: "Last Video Title", value: (lead: ReportLead) => (lead.extra as any)?.lastVideoTitle },
+          { header: "Last Video URL", value: (lead: ReportLead) => (lead.extra as any)?.lastVideoUrl },
+          { header: "Channel Description", value: (lead: ReportLead) => (lead.extra as any)?.channelDescription },
+        ],
+        "prospects-leads",
+        setReportSheetState,
+      );
+      toast({ title: "Reports downloaded", description: `${made} matching PDF report(s) and the lead sheet downloaded${failed ? ` · ${failed} failed` : ""}.` });
+    } catch (e: any) {
+      toast({ title: "Report download failed", description: e?.message || String(e), variant: "destructive" });
+    } finally {
+      setReportSheetState(null);
+    }
+  };
+
+  const [bulkComment, setBulkComment] = useState("");
+  const [commentMode, setCommentMode] = useState<"append" | "replace">("append");
+  const [commentOpen, setCommentOpen] = useState(false);
+  const [savingComment, setSavingComment] = useState(false);
+  const applySelectedComment = async () => {
+    const text = bulkComment.trim();
+    if (!selected.size || !text) return;
+    setSavingComment(true);
+    try {
+      const list = await loadSelectedLeads();
+      let index = 0;
+      const saved = new Map<string, string>();
+      const worker = async () => {
+        while (index < list.length) {
+          const lead = list[index++];
+          const nextComment = commentMode === "replace" || !lead.comment?.trim() ? text : `${lead.comment.trim()}\n${text}`;
+          const next = { ...lead, comment: nextComment, updatedAt: new Date().toISOString() };
+          const { error } = await supabase.from("prospects").update({ data: next as any }).eq("id", lead.id);
+          if (error) throw error;
+          saved.set(lead.id, nextComment);
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(6, list.length) }, worker));
+      setRows(current => current.map(row => saved.has(row.id) ? { ...row, comment: saved.get(row.id) || "" } : row));
+      setBulkComment("");
+      setCommentOpen(false);
+      toast({ title: "Comments updated", description: `${saved.size.toLocaleString()} selected lead(s).` });
+    } catch (e: any) {
+      toast({ title: "Comment update failed", description: e?.message || String(e), variant: "destructive" });
+    } finally {
+      setSavingComment(false);
+    }
   };
   const copySelectedLeads = async (openSheets: boolean) => {
     if (!selected.size) return;
@@ -3794,6 +3856,25 @@ ${vidBlock(2)}`;
                   </Button>
                 </>
               )}
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px]" disabled={!!reportSheetState} onClick={downloadSelectedReports} title="Download web-matched PDF reports and a lead sheet">
+                {reportSheetState ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />{reportSheetState}</> : <><Download className="h-3.5 w-3.5 mr-1" />Reports + Sheet</>}
+              </Button>
+              <Popover open={commentOpen} onOpenChange={setCommentOpen}>
+                <PopoverTrigger asChild>
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px]"><MessageCircle className="h-3.5 w-3.5 mr-1" />Comment</Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 space-y-2 p-3" align="start">
+                  <div className="text-xs font-medium">Update comment on {selected.size.toLocaleString()} lead(s)</div>
+                  <Textarea value={bulkComment} onChange={e => setBulkComment(e.target.value)} rows={4} placeholder="Custom comment…" className="text-xs" />
+                  <div className="flex items-center gap-3 text-xs">
+                    <label className="flex items-center gap-1"><input type="radio" checked={commentMode === "append"} onChange={() => setCommentMode("append")} />Add to existing</label>
+                    <label className="flex items-center gap-1"><input type="radio" checked={commentMode === "replace"} onChange={() => setCommentMode("replace")} />Replace</label>
+                  </div>
+                  <Button size="sm" className="h-7 w-full text-xs" disabled={savingComment || !bulkComment.trim()} onClick={applySelectedComment}>
+                    {savingComment ? <Loader2 className="h-3 w-3 animate-spin" /> : `Apply to ${selected.size.toLocaleString()}`}
+                  </Button>
+                </PopoverContent>
+              </Popover>
               {isAdmin && sourceFilter !== "banned" && (
                 <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px] text-destructive hover:text-destructive" onClick={() => banSelected()} title="Move selected straight to Banned Leads">
                   Ban
