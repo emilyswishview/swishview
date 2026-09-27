@@ -100,3 +100,9 @@
     padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
   }
 }
+
+@media print {
+  body.report-print-page {
+    padding-bottom: 0 !important;
+  }
+}

@@ -526,4 +526,29 @@
   body.report-print-page nav.fixed.bottom-0 {
     display: none !important;
   }
+  body.report-print-page {
+    padding-bottom: 0 !important;
+  }
+  body.report-print-page .report-document {
+    width: 900px !important;
+    max-width: 900px !important;
+  }
+  body.report-print-page [data-pdf-section] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+body.report-capture-page {
+  width: 900px !important;
+  min-width: 900px !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+body.report-capture-page .report-document {
+  width: 900px !important;
+  max-width: 900px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
