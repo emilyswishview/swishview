@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS public.calling_leads_phone_key;

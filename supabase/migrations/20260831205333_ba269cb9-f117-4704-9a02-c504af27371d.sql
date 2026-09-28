@@ -1,0 +1,1 @@
+ALTER FUNCTION public.country_dial_code(text) SET search_path = public;
