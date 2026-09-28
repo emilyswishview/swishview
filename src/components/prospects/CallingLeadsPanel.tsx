@@ -19,7 +19,8 @@ import {
   DropdownMenuItem, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { analyzePhone } from "@/utils/phoneFormat";
+import { analyzePhone, countryFlag, callingCodeFor } from "@/utils/phoneFormat";
+import { getCountries } from "libphonenumber-js";
 import { PROSPECTS_ALLOWED_EMAILS, PROSPECTS_ADMIN_EMAIL } from "@/hooks/useProspectsSession";
 import { CALLING_AGENT_EMAILS } from "@/config/callingAgents";
 
@@ -521,6 +522,22 @@ export default function CallingLeadsPanel({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAssignee, setBulkAssignee] = useState<string>(ASSIGNEES[0] || "");
   const [filters, setFilters] = useState<Record<string, ColFilter>>({});
+  // Country filter for the phone column: ISO-2 code identified from each
+  // lead's phone number (falls back to the channel country as a hint).
+  const [phoneCountry, setPhoneCountry] = useState<string>("");
+  const phoneIsoOf = (r: CallingLead) => analyzePhone(r.phone, r.country).country || "";
+  const PHONE_COUNTRY_OPTIONS = useMemo(() => {
+    let names: Intl.DisplayNames | undefined;
+    try { names = new Intl.DisplayNames(["en"], { type: "region" }); } catch { /* ignore */ }
+    return getCountries()
+      .map(iso => ({
+        iso,
+        flag: countryFlag(iso),
+        name: names?.of(iso) || iso,
+        code: callingCodeFor(iso),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, []);
   const [enrichingId, setEnrichingId] = useState<string | null>(null);
   const [reportingId, setReportingId] = useState<string | null>(null);
 
@@ -931,7 +948,7 @@ export default function CallingLeadsPanel({
     try {
       const ids: string[] = [];
       for (let from = 0; ; from += 1000) {
-        let q: any = supabase.from("calling_leads").select("id").order("created_at", { ascending: false }).range(from, from + 999);
+        let q: any = supabase.from("calling_leads").select("id, phone, country").order("created_at", { ascending: false }).range(from, from + 999);
         if (status !== "all") q = q.eq("call_status", status);
         if (!isAdmin && me) q = q.eq("assigned_to", me);
         else if (assignee === "unassigned") q = q.is("assigned_to", null);
@@ -942,7 +959,7 @@ export default function CallingLeadsPanel({
         }
         const { data, error } = await q;
         if (error) throw error;
-        ids.push(...(data || []).map((r: any) => r.id));
+        ids.push(...(data || []).filter((r: any) => !phoneCountry || phoneIsoOf(r as CallingLead) === phoneCountry).map((r: any) => r.id));
         if (!data || data.length < 1000) break;
       }
       setSelected(new Set(ids));
@@ -1047,12 +1064,15 @@ export default function CallingLeadsPanel({
           if (data.length < chunk) break;
         }
       }
-      const headers = ["Channel Name", "Channel Link", "Phone", "Email", "Subscribers", "Views", "Country", "Language", "Keyword", "Last Video Title", "Last Video Date", "Description", "Source", "Status", "Assigned To", "Notes", "Last Called At"];
+      // Phone-country filter narrows the export to leads whose identified
+      // phone number belongs to the selected country.
+      const rowsOut = phoneCountry ? allRows.filter(r => phoneIsoOf(r) === phoneCountry) : allRows;
+      const headers = ["Channel Name", "Channel Link", "Phone", "Phone Country", "Email", "Subscribers", "Views", "Country", "Language", "Keyword", "Last Video Title", "Last Video Date", "Description", "Source", "Status", "Assigned To", "Notes", "Last Called At"];
       const lines = [
         headers.join(","),
-        ...allRows.map(r =>
+        ...rowsOut.map(r =>
           [
-            r.channel_name, r.channel_link, r.phone, r.email ?? "", r.subscribers ?? "", r.total_views ?? "",
+            r.channel_name, r.channel_link, r.phone, phoneIsoOf(r), r.email ?? "", r.subscribers ?? "", r.total_views ?? "",
             r.country ?? "", r.language ?? "", r.keyword ?? "", r.last_video_title ?? "", r.last_video_date ?? "",
             r.description ?? "", r.source, r.call_status, r.assigned_to ?? "", r.call_notes ?? "", r.last_called_at ?? "",
           ].map(escapeCsv).join(","),
@@ -1067,7 +1087,7 @@ export default function CallingLeadsPanel({
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toast({ title: "Exported", description: `${allRows.length} lead(s) downloaded.` });
+      toast({ title: "Exported", description: `${rowsOut.length} lead(s) downloaded.` });
     } catch (e: any) {
       toast({ title: "Export failed", description: e?.message, variant: "destructive" });
     } finally {
@@ -1088,6 +1108,7 @@ export default function CallingLeadsPanel({
   // Excel-style per-column filtering + sorting on the loaded page.
   const viewRows = useMemo(() => {
     let out = [...rows];
+    if (phoneCountry) out = out.filter(r => phoneIsoOf(r) === phoneCountry);
     Object.entries(filters).forEach(([key, f]) => {
       if (!f) return;
       if (f.presence) {
@@ -1154,7 +1175,7 @@ export default function CallingLeadsPanel({
       });
     }
     return out;
-  }, [rows, filters]);
+  }, [rows, filters, phoneCountry]);
 
   const activeColFilters = Object.keys(filters).length;
   const allVisibleSelected = viewRows.length > 0 && viewRows.every(r => selected.has(r.id));
@@ -1304,6 +1325,19 @@ export default function CallingLeadsPanel({
             <option value="all">All assignees</option>
             <option value="unassigned">Unassigned</option>
             {ASSIGNEES.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        )}
+        {isAdmin && (
+          <select
+            value={phoneCountry}
+            onChange={e => setPhoneCountry(e.target.value)}
+            className="h-8 max-w-52 rounded-md border border-border bg-background px-2 text-xs"
+            title="Filter by the country identified from each lead's phone number"
+          >
+            <option value="">All phone countries</option>
+            {PHONE_COUNTRY_OPTIONS.map(o => (
+              <option key={o.iso} value={o.iso}>{o.flag} {o.name} {o.code}</option>
+            ))}
           </select>
         )}
         <select
