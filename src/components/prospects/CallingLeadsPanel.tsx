@@ -1327,19 +1327,17 @@ export default function CallingLeadsPanel({
             {ASSIGNEES.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
         )}
-        {isAdmin && (
-          <select
-            value={phoneCountry}
-            onChange={e => setPhoneCountry(e.target.value)}
-            className="h-8 max-w-52 rounded-md border border-border bg-background px-2 text-xs"
-            title="Filter by the country identified from each lead's phone number"
-          >
-            <option value="">All phone countries</option>
-            {PHONE_COUNTRY_OPTIONS.map(o => (
-              <option key={o.iso} value={o.iso}>{o.flag} {o.name} {o.code}</option>
-            ))}
-          </select>
-        )}
+        <select
+          value={phoneCountry}
+          onChange={e => setPhoneCountry(e.target.value)}
+          className="h-8 max-w-52 rounded-md border border-border bg-background px-2 text-xs"
+          title="Filter by the country identified from each lead's phone number"
+        >
+          <option value="">All phone countries</option>
+          {PHONE_COUNTRY_OPTIONS.map(o => (
+            <option key={o.iso} value={o.iso}>{o.flag} {o.name} {o.code}</option>
+          ))}
+        </select>
         <select
           value={sort}
           onChange={e => setSort(e.target.value as typeof sort)}
